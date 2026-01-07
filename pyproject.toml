@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flex"
+dynamic = ["version"]
+description = "Contains building blocks for making Fuzzy Logic based models in JAX."
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.3",
+    "pandas>=2.3",
+    "scipy>=1.16",
+    "jax==0.8.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ipykernel>=7.0",
+    "matplotlib>=3.10",
+]
