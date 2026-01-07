@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from .base_mf import BaseMF
+from .functions import gaussian
 
 import equinox as eqx
 import jax.numpy as jnp
