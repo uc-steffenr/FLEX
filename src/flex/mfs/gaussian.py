@@ -12,21 +12,15 @@ Array = jnp.ndarray
 
 
 class Gaussian(BaseMF):
-    sig: Array
-    mu: Array
-
+    sig_idx: int = eqx.field(static=True)
     name: str = eqx.field(static=True, default="gauss", kw_only=True)
 
-    def __call__(self, x: Array) -> Array:
-        sig = jnp.maximum(self.sig, self.eps)
-        mu  = self.mu
+    def __call__(self, x: Array, nodes: Array, sigs: Array) -> Array:
+        idx = self.idx
+        sig_idx = self.sig_idx
+        eps = self.eps
 
-        return jnp.exp(-0.5*((x - mu) / sig)**2)
+        sig = nodes[sig_idx]
+        mu = sigs[idx]
 
-    @property
-    def params(self) -> Array:
-        return jnp.stack([self.sig, self.mu])
-
-    def validate(self) -> None:
-        if self.sig <= 0.0:
-            raise ValueError("Assigned sigma value must be > 0.0.")
+        return gaussian(x, sig, mu, eps)

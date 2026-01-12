@@ -13,18 +13,10 @@ Array = jnp.ndarray
 class BaseMF(eqx.Module, abc.ABC):
     """Membership funciton interface.
     """
+    idx: int = eqx.field(static=True)
     name: str = eqx.field(static=True, default="", kw_only=True)
     eps: float = eqx.field(static=True, default=1e-12, kw_only=True)
 
     @abc.abstractmethod
-    def __call__(self, x: Array) -> Array:
+    def __call__(self, x: Array, nodes: Array) -> Array:
         raise NotImplementedError("__call__ is not implemented for base MF class.")
-
-    @property
-    @abc.abstractmethod
-    def params(self) -> Array:
-        raise NotImplementedError("params is not implemented for base MF class. ")
-
-    @abc.abstractmethod
-    def validate(self) -> None:
-        raise NotImplementedError("validate is not implemented for base MF class.")
