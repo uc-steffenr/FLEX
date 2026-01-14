@@ -100,8 +100,8 @@ class FuzzyVariable(eqx.Module):
         key: Array|None = None,
         noise_scaler: float = 0.1,
     ) -> "FuzzyVariable":
-        if n_mfs <= 1:
-            raise ValueError(f"n_mfs must be > 1 for ruspini partitions, got {n_mfs}.")
+        if n_mfs < 1:
+            raise ValueError(f"n_mfs must be >= 1 for Gaussian mfs, got {n_mfs}.")
 
         if init not in ["uniform", "noisy"]:
             raise ValueError(f"init must be \"uniform\" or \"noisy\", got {init}.")
