@@ -13,18 +13,9 @@ from .utils.types import Array, ScalarLike
 from .utils.unconstrained_parameters import gaps2nodes, sig_softplus
 
 
-# maps str name to corresponding class
-MF_DICT: Dict[str, Type[BaseMF]] = {
-    "left_shoulder": LeftShoulder,
-    "right_shoulder": RightShoulder,
-    "trapezoid": Trapezoid,
-    "triangle": Triangle,
-    "gaussian": Gaussian,
-}
+MFS = ["left_shoulder", "right_shoulder", "triangle", "trapezoid", "gaussian"]
 
-
-# Each MF has a corresponding index that they use for the parameters theta
-# These parameters should be unconstrained.... need a nodes method using softplus to retrive the actual values
+# NOTE: overlaps must be enforced because of how nodes/gaps are defined
 class FuzzyVariable(eqx.Module):
     params: ParamBank
 
@@ -33,6 +24,7 @@ class FuzzyVariable(eqx.Module):
     maxval: float = eqx.field(static=True, default=1.0)
     name: str = eqx.field(static=True, default="x")
 
+    # NOTE: if params are specified, this overrides init="uniform" or init="noisy"
     @classmethod 
     def manual(
         cls,
@@ -41,28 +33,27 @@ class FuzzyVariable(eqx.Module):
         minval: float = 0.0,
         maxval: float = 1.0,
         name: str = "x",
+        mf_names: Sequence[str]|None = None,
         mode: str = "manual",
         init: str = "uniform",
         key: Array|None = None,
         noise_scaler: float = 0.1,
         params: Sequence[Sequence[float]]|None = None,
     ) -> "FuzzyVariable":
-        raise NotImplementedError("Manual initialization has not been properly implemented yet.")
-
         # Sanity checks
-        if any(mf not in MF_DICT for mf in mfs):
+        if any(mf not in MFS for mf in mfs):
             raise ValueError("Invalid MF type specified. Must be  ",
                              "\"left_shoulder\", \"right_shoulder\", ",
                              "\"triangle\", \"trapezoid\", or \"gaussian\".")
+
+        if minval >= maxval:
+            raise ValueError(f"minval must be stricly < maxval, got minval={minval} and maxval={maxval}")
 
         if init not in ["uniform", "noisy"]:
             raise ValueError(f"init must be \"uniform\" or \"noisy\", go {init}.")
 
         if init == "noisy" and key is None:
             raise ValueError("Noisy initi must use a PRNGKey for initialization.")
-
-        if init == "manual" and params is None:
-            raise ValueError("Manual initialization requires parameters to be specified.")
 
         if mode == "ruspini" and "gaussian" in mfs:
             raise ValueError("Ruspini partitions cannot be used with gaussian mfs.")
@@ -72,7 +63,12 @@ class FuzzyVariable(eqx.Module):
 
         n_mfs = len(mfs)
 
-        # TODO: include manual init for ruspini partitions
+        if mf_names is not None and len(mf_names) != n_mfs:
+            raise ValueError("Number of mf_names is not equal to the number of mfs requested.")
+
+        if mf_names is None:
+            mf_names = [f"mf_{i+1}" for i in range(n_mfs)]
+
         if mode == "ruspini":
             nn = 0
             for mf in mfs[1:-1]:
@@ -81,12 +77,91 @@ class FuzzyVariable(eqx.Module):
                 elif mf == "trapezoid":
                     nn += 2
 
-            gaps = jnp.zeros((nn - 1,))
+            if params is None:
+                gaps = jnp.zeros((nn + 1,))
 
-            if init == "noisy":
-                gaps = gaps + noise_scaler * jax.random.normal(key, gaps.shape)
-            
-            _mfs = [LeftShoulder(idx=0)]
+                if init == "noisy":
+                    gaps = gaps + noise_scaler * jax.random.normal(key, gaps.shape)
+
+                params = ParamBank(gaps=gaps)
+            else:
+                raise NotImplementedError("Parameter specification for ruspini partitions is not implemented yet.")
+
+            _mfs = [LeftShoulder(idx=0, name=mf_names[0])]
+
+            n = 1  # node counter
+            for i in range(1, n_mfs-1):
+                if mfs[i] == "triangle":
+                    _mfs.append(Triangle(idx=n, name=mf_names[i]))
+                    n += 1
+                elif mfs[i] == "trapezoid":
+                    _mfs.append(Trapezoid(idx=n, name=mf_names[i]))
+                    n += 2
+
+            _mfs.append(RightShoulder(idx=n, name=mf_names[-1]))
+
+        elif mode == "manual":
+            if "left_shoulder" in mfs and (mfs[0] != "left_shoulder" or mfs.count("left_shoulder") > 1):
+                raise ValueError("left_shoulder can only be used once and it must be the first mf.")
+
+            if "right_shoulder" in mfs and (mfs[-1] != "right_shoulder" or mfs.count("right_shoulder") > 1):
+                raise ValueError("right_shoulder can only be used once and it must be the last mf.")
+
+            nn = 0
+            ns = 0
+            for mf in mfs:
+                if mf == "triangle":
+                    nn += 1
+                elif mf == "trapezoid":
+                    nn += 2
+                elif mf == "gaussian":
+                    nn += 1
+                    ns += 1
+
+            if params is None:
+                # if statement here ensures last mf isn't pinned to maxval
+                gaps = jnp.zeros((nn - 1,)) if mfs[-1] == "right_shoulder" else jnp.zeros((nn + 1,))
+                raw_sigs = jnp.zeros((ns,))
+
+                if init == "noisy":
+                    keys = jax.random.split(key, 2)
+                    gaps = gaps + noise_scaler * jax.random.normal(keys[0], gaps.shape)
+                    raw_sigs = raw_sigs + noise_scaler * jax.random.normal(keys[1], raw_sigs.shape)
+                
+                params = ParamBank(gaps=gaps, raw_sigmas=raw_sigs)
+            else:
+                raise NotImplementedError("Parameter specification for manual mode is not implemented yet.")
+
+            _mfs = []
+            n = 0
+            sn = 0
+            for i in range(n_mfs):
+                # Check first mf
+                if i == 0 and mfs[0] != "left_shoulder":
+                    n += 1
+                elif i == 0 and mfs[0] == "left_shoulder":
+                    _mfs.append(LeftShoulder(idx=0, name=mf_names[0]))
+                    continue
+
+                # Check last mf
+                if i == n_mfs-1 and mfs[-1] != "right_shoulder":
+                    pass
+                elif i == n_mfs-1 and mfs[-1] != "right_shoulder":
+                    _mfs.append(RightShoulder(idx=nn-1, name=mf_names[-1]))
+                    break
+
+                if mfs[i] == "triangle":
+                    _mfs.append(Triangle(idx=n, name=mf_names[i]))
+                    n += 1
+                elif mfs[i] == "trapezoid":
+                    _mfs.append(Trapezoid(idx=n, name=mf_names[i]))
+                    n += 2
+                elif mfs[i] == "gaussian":
+                    _mfs.append(Gaussian(idx=n, sig_idx=sn, name=mf_names[i]))
+                    n += 1
+                    sn += 1
+
+        return FuzzyVariable(params, tuple(_mfs), minval, maxval, name)
 
     @classmethod
     def gaussian(
@@ -96,6 +171,7 @@ class FuzzyVariable(eqx.Module):
         minval: float = 0.0,
         maxval: float = 1.0,
         name: str = "x",
+        mf_names: Sequence[str]|None = None,
         init: str = "uniform",
         key: Array|None = None,
         noise_scaler: float = 0.1,
@@ -103,11 +179,20 @@ class FuzzyVariable(eqx.Module):
         if n_mfs < 1:
             raise ValueError(f"n_mfs must be >= 1 for Gaussian mfs, got {n_mfs}.")
 
+        if minval >= maxval:
+            raise ValueError(f"minval must be stricly < maxval, got minval={minval} and maxval={maxval}")
+
         if init not in ["uniform", "noisy"]:
             raise ValueError(f"init must be \"uniform\" or \"noisy\", got {init}.")
 
         if init == "noisy" and key is None:
             raise ValueError("Noisy init must use a PRNGKey for initialization.")
+
+        if mf_names is not None and len(mf_names) != n_mfs:
+            raise ValueError("Number of mf_names is not equal to the number of mfs requested.")
+
+        if mf_names is None:
+            mf_names = [f"mf_{i+1}" for i in range(n_mfs)]
 
         # NOTE: when looking at strictly gaussian mfs, ease constraint of binding to minval and maxval
         gaps = jnp.zeros((n_mfs + 1,))
@@ -119,35 +204,46 @@ class FuzzyVariable(eqx.Module):
             raw_sigs = raw_sigs + noise_scaler * jax.random.normal(keys[1], raw_sigs.shape)
 
         params = ParamBank(gaps=gaps, raw_sigmas=raw_sigs)
-        mfs = [Gaussian(idx=i+1, sig_idx=i) for i in range(n_mfs)]
+
+        mfs = [Gaussian(idx=i+1, sig_idx=i, name=mf_names[i]) for i in range(n_mfs)]
 
         return FuzzyVariable(params, tuple(mfs), minval, maxval, name)
 
     @classmethod
     def ruspini(
         cls,
-        kind: str,
         n_mfs: int,
+        kind: str,
         *,
         minval: float = 0.0,
         maxval: float = 1.0,
         name: str = "x",
+        mf_names: Sequence[str]|None = None,
         init: str = "uniform",
         key: Array|None = None,
         noise_scaler: float = 0.1,
     ) -> "FuzzyVariable":
         # Sanity checks
+        if n_mfs <= 1:
+            raise ValueError(f"n_mfs must be > 1 for ruspini partitions, got {n_mfs}.")
+
         if kind not in ["triangle", "trapezoid"]:
             raise ValueError(f"kind must be \"triangle\" or \"trapezoid\", got {kind}.")
 
-        if n_mfs <= 1:
-            raise ValueError(f"n_mfs must be > 1 for ruspini partitions, got {n_mfs}.")
+        if minval >= maxval:
+            raise ValueError(f"minval must be stricly < maxval, got minval={minval} and maxval={maxval}")
 
         if init not in ["uniform", "noisy"]:
             raise ValueError(f"init must be \"uniform\" or \"noisy\", got {init}.")
 
         if init == "noisy" and key is None:
             raise ValueError("Noisy init must use a PRNGKey for initialization.")
+
+        if mf_names is not None and len(mf_names) != n_mfs:
+            raise ValueError("Number of mf_names is not equal to the number of mfs requested.")
+
+        if mf_names is None:
+            mf_names = [f"mf_{i+1}" for i in range(n_mfs)]
 
         if kind == "triangle":
             nn = n_mfs
@@ -161,18 +257,18 @@ class FuzzyVariable(eqx.Module):
 
         params = ParamBank(gaps=gaps)
 
-        mfs = [LeftShoulder(idx=0)]
+        mfs = [LeftShoulder(idx=0, name=mf_names[0])]
 
         for i in range(1, n_mfs-1):
             if kind == "triangle":
-                mfs.append(Triangle(idx=i))
+                mfs.append(Triangle(idx=i, name=mf_names[i]))
             elif kind == "trapezoid":
-                mfs.append(Trapezoid(idx=2*i - 1))
+                mfs.append(Trapezoid(idx=2*i - 1, name=mf_names[i]))
 
         if kind == "triangle":
-            mfs.append(RightShoulder(idx=n_mfs-1))
+            mfs.append(RightShoulder(idx=n_mfs-1, name=mf_names[-1]))
         elif kind == "trapezoid":
-            mfs.append(RightShoulder(idx=2*n_mfs - 3))
+            mfs.append(RightShoulder(idx=2*n_mfs - 3, name=mf_names[-1]))
 
         return FuzzyVariable(params, tuple(mfs), minval, maxval, name)
 
@@ -206,3 +302,7 @@ class FuzzyVariable(eqx.Module):
                 params.append(mf.get_params(nodes, sigs))
 
         return params
+
+    @property
+    def mf_names(self) -> list[str]:
+        return [mf.name for mf in self.mfs]
