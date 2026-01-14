@@ -1,7 +1,7 @@
 """Defines fuzzy variable class."""
 from __future__ import annotations
 
-from typing import Tuple, Sequence, Dict, Type
+from typing import Tuple, Sequence
 
 import jax
 import jax.numpy as jnp
@@ -87,6 +87,7 @@ class FuzzyVariable(eqx.Module):
             else:
                 raise NotImplementedError("Parameter specification for ruspini partitions is not implemented yet.")
 
+            # Build mf list and assign indices
             _mfs = [LeftShoulder(idx=0, name=mf_names[0])]
 
             n = 1  # node counter
@@ -120,34 +121,35 @@ class FuzzyVariable(eqx.Module):
 
             if params is None:
                 # if statement here ensures last mf isn't pinned to maxval
-                gaps = jnp.zeros((nn - 1,)) if mfs[-1] == "right_shoulder" else jnp.zeros((nn + 1,))
+                gaps = jnp.zeros((nn + 1,))
                 raw_sigs = jnp.zeros((ns,))
 
                 if init == "noisy":
                     keys = jax.random.split(key, 2)
                     gaps = gaps + noise_scaler * jax.random.normal(keys[0], gaps.shape)
                     raw_sigs = raw_sigs + noise_scaler * jax.random.normal(keys[1], raw_sigs.shape)
-                
+
                 params = ParamBank(gaps=gaps, raw_sigmas=raw_sigs)
             else:
                 raise NotImplementedError("Parameter specification for manual mode is not implemented yet.")
 
+            # Build mf list and assign indices
             _mfs = []
             n = 0
             sn = 0
             for i in range(n_mfs):
                 # Check first mf
-                if i == 0 and mfs[0] != "left_shoulder":
-                    n += 1
-                elif i == 0 and mfs[0] == "left_shoulder":
-                    _mfs.append(LeftShoulder(idx=0, name=mf_names[0]))
-                    continue
+                if i == 0:
+                    if mfs[i] == "left_shoulder":
+                        _mfs.append(LeftShoulder(idx=0, name=mf_names[0]))
+                        continue
+                    # Make sure first mf isn't pinned to minval
+                    else:
+                        n += 1
 
                 # Check last mf
-                if i == n_mfs-1 and mfs[-1] != "right_shoulder":
-                    pass
-                elif i == n_mfs-1 and mfs[-1] != "right_shoulder":
-                    _mfs.append(RightShoulder(idx=nn-1, name=mf_names[-1]))
+                if i == n_mfs - 1 and mfs[i] == "right_shoulder":
+                    _mfs.append(RightShoulder(idx=n, name=mf_names[-1]))
                     break
 
                 if mfs[i] == "triangle":
