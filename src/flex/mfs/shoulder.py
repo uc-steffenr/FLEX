@@ -7,8 +7,7 @@ from .functions import left_shoulder, right_shoulder
 import equinox as eqx
 import jax.numpy as jnp
 
-
-Array = jnp.ndarray
+from ..utils.types import Array
 
 
 class LeftShoulder(BaseMF):
@@ -23,6 +22,12 @@ class LeftShoulder(BaseMF):
 
         return left_shoulder(x, c, d, eps)
 
+    def get_params(self, nodes: Array) -> Array:
+        c = nodes[self.idx]
+        d = nodes[self.idx + 1]
+
+        return jnp.array([c, d])
+
 
 class RightShoulder(BaseMF):
     name: str = eqx.field(static=True, default="right", kw_only=True)
@@ -35,3 +40,9 @@ class RightShoulder(BaseMF):
         b = nodes[idx]
 
         return right_shoulder(x, a, b, eps)
+
+    def get_params(self, nodes: Array) -> Array:
+        a = nodes[self.idx - 1]
+        b = nodes[self.idx]
+
+        return jnp.array([a, b])

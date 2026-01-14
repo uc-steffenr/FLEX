@@ -7,8 +7,7 @@ from .functions import triangle
 import equinox as eqx
 import jax.numpy as jnp
 
-
-Array = jnp.ndarray
+from ..utils.types import Array
 
 
 class Triangle(BaseMF):
@@ -23,3 +22,10 @@ class Triangle(BaseMF):
         c = nodes[idx + 1]
 
         return triangle(x, a, b, c, eps)
+
+    def get_params(self, nodes: Array) -> Array:
+        a = nodes[self.idx - 1]
+        b = nodes[self.idx]
+        c = nodes[self.idx + 1]
+
+        return jnp.array([a, b, c])

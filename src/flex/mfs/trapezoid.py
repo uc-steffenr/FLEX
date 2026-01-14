@@ -7,8 +7,7 @@ from .functions import trapezoid
 import equinox as eqx
 import jax.numpy as jnp
 
-
-Array = jnp.ndarray
+from ..utils.types import Array
 
 
 class Trapezoid(BaseMF):
@@ -24,3 +23,11 @@ class Trapezoid(BaseMF):
         d = nodes[idx + 2]
 
         return trapezoid(x, a, b, c, d, eps)
+
+    def get_params(self, nodes: Array) -> Array:
+        a = nodes[self.idx - 1]
+        b = nodes[self.idx]
+        c = nodes[self.idx + 1]
+        d = nodes[self.idx + 2]
+
+        return jnp.array([a, b, c, d])
