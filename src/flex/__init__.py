@@ -13,4 +13,6 @@ __version__ = "0.1.0"
 __author__ = "Nathan Steffen"
 __email__ = "steffenr@mail.uc.edu"
 
+from .fuzzy_variable import FuzzyVariable
+
 # __all__ = []
