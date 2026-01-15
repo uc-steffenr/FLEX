@@ -7,7 +7,7 @@ import jax.numpy as jnp
 Array = jnp.ndarray
 
 
-def gaussian(x: Array, sig: float, mu: float, eps: float=1e-12) -> Array:
+def gaussian(x: Array, sig: float, mu: float, eps: float=1e-7) -> Array:
     # Numerical stability check
     sig = jnp.maximum(sig, eps)
     return jnp.exp(-0.5*((x - mu) / sig)**2)
@@ -34,7 +34,7 @@ def trapezoid(
     b: float,
     c: float,
     d: float,
-    eps: float=1e-12,
+    eps: float=1e-7,
 ) -> Array:
     # Numerical stability check
     b = jnp.maximum(b, a + eps)
@@ -46,13 +46,13 @@ def trapezoid(
 
     return jnp.minimum(left, right)
 
-def left_shoulder(x: Array, c: float, d: float, eps: float=1e-12) -> Array:
+def left_shoulder(x: Array, c: float, d: float, eps: float=1e-7) -> Array:
     # Numerical stability check
     d = jnp.maximum(d, c + eps)
 
     return jnp.clip((d - x) / (d - c), 0.0, 1.0)
 
-def right_shoulder(x: Array, a: float, b: float, eps: float=1e-12) -> Array:
+def right_shoulder(x: Array, a: float, b: float, eps: float=1e-7) -> Array:
     # Numerical stability check
     b = jnp.maximum(b, a + eps)
 
