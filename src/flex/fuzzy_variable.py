@@ -22,7 +22,7 @@ class FuzzyVariable(eqx.Module):
     mfs: Tuple[BaseMF, ...] = eqx.field(static=True)
     minval: float = eqx.field(static=True, default=0.0)
     maxval: float = eqx.field(static=True, default=1.0)
-    name: str = eqx.field(static=True, default="x")
+    name: str = eqx.field(static=True, default="fv")
 
     # NOTE: if params are specified, this overrides init="uniform" or init="noisy"
     @classmethod 
@@ -215,8 +215,8 @@ class FuzzyVariable(eqx.Module):
     def ruspini(
         cls,
         n_mfs: int,
-        kind: str,
         *,
+        kind: str = "triangle",
         minval: float = 0.0,
         maxval: float = 1.0,
         name: str = "x",
@@ -279,7 +279,7 @@ class FuzzyVariable(eqx.Module):
 
         nodes = gaps2nodes(self.params.gaps, self.minval, self.maxval)
 
-        if self.params.raw_sigmas is not None or len(self.params.raw_sigmas) == 0:
+        if self.params.raw_sigmas is not None and len(self.params.raw_sigmas) > 0:
             sigs = sig_softplus(self.params.raw_sigmas)
 
         mus = [mf(x, nodes) if type(mf) is not Gaussian else mf(x, nodes, sigs) for mf in self.mfs]
