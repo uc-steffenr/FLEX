@@ -108,7 +108,7 @@ class FuzzyVariable(eqx.Module):
             if "right_shoulder" in mfs and (mfs[-1] != "right_shoulder" or mfs.count("right_shoulder") > 1):
                 raise ValueError("right_shoulder can only be used once and it must be the last mf.")
 
-            nn = 0
+            nn = 2  # start and end nodes
             ns = 0
             for mf in mfs:
                 if mf == "triangle":
@@ -121,8 +121,8 @@ class FuzzyVariable(eqx.Module):
 
             if params is None:
                 # if statement here ensures last mf isn't pinned to maxval
-                gaps = jnp.zeros((nn + 1,))
-                raw_sigs = jnp.zeros((ns,))
+                gaps = jnp.zeros((nn - 1,))
+                raw_sigs = jnp.ones((ns,)) * -2.5
 
                 if init == "noisy":
                     keys = jax.random.split(key, 2)
@@ -142,6 +142,7 @@ class FuzzyVariable(eqx.Module):
                 if i == 0:
                     if mfs[i] == "left_shoulder":
                         _mfs.append(LeftShoulder(idx=0, name=mf_names[0]))
+                        n += 1
                         continue
                     # Make sure first mf isn't pinned to minval
                     else:
@@ -149,7 +150,7 @@ class FuzzyVariable(eqx.Module):
 
                 # Check last mf
                 if i == n_mfs - 1 and mfs[i] == "right_shoulder":
-                    _mfs.append(RightShoulder(idx=n, name=mf_names[-1]))
+                    _mfs.append(RightShoulder(idx=nn-1, name=mf_names[-1]))
                     break
 
                 if mfs[i] == "triangle":
@@ -198,7 +199,7 @@ class FuzzyVariable(eqx.Module):
 
         # NOTE: when looking at strictly gaussian mfs, ease constraint of binding to minval and maxval
         gaps = jnp.zeros((n_mfs + 1,))
-        raw_sigs = jnp.zeros((n_mfs,))
+        raw_sigs = jnp.ones((n_mfs,)) * -2.5
 
         if init == "noisy":
             keys = jax.random.split(key, 2)
@@ -250,7 +251,7 @@ class FuzzyVariable(eqx.Module):
         if kind == "triangle":
             nn = n_mfs
         elif kind == "trapezoid":
-            nn = 2*n_mfs
+            nn = 2*(n_mfs - 1)
 
         gaps = jnp.zeros((nn - 1,))
 
@@ -268,9 +269,9 @@ class FuzzyVariable(eqx.Module):
                 mfs.append(Trapezoid(idx=2*i - 1, name=mf_names[i]))
 
         if kind == "triangle":
-            mfs.append(RightShoulder(idx=n_mfs-1, name=mf_names[-1]))
+            mfs.append(RightShoulder(idx=nn-1, name=mf_names[-1]))
         elif kind == "trapezoid":
-            mfs.append(RightShoulder(idx=2*n_mfs - 3, name=mf_names[-1]))
+            mfs.append(RightShoulder(idx=nn-1, name=mf_names[-1]))
 
         return FuzzyVariable(params, tuple(mfs), minval, maxval, name)
 
