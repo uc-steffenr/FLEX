@@ -55,7 +55,7 @@ class TestRuspini(unittest.TestCase):
         names = [f"mf_{i}" for i in range(n_mfs)]
         fv = FuzzyVariable.ruspini(n_mfs=n_mfs, kind="trapezoid", mf_names=names)
 
-        self.assertEqual(tuple(fv.params.gaps.shape), (2 * n_mfs - 1,))
+        self.assertEqual(tuple(fv.params.gaps.shape), (2*n_mfs - 3,))
 
         self.assertIsInstance(fv.mfs[0], LeftShoulder)
         self.assertIsInstance(fv.mfs[-1], RightShoulder)
@@ -283,11 +283,11 @@ class TestFuzzyVariableManual(unittest.TestCase):
         # Trapezoid uses idx=2 then n=4
         # RS uses idx=4
         self.assertEqual(fv.mfs[0].idx, 0)
-        self.assertEqual(fv.mfs[1].idx, 0)
-        self.assertEqual(fv.mfs[2].idx, 1)
+        self.assertEqual(fv.mfs[1].idx, 1)
+        self.assertEqual(fv.mfs[2].idx, 2)
         self.assertEqual(getattr(fv.mfs[2], "sig_idx"), 0)
-        self.assertEqual(fv.mfs[3].idx, 2)
-        self.assertEqual(fv.mfs[4].idx, 4)
+        self.assertEqual(fv.mfs[3].idx, 3)
+        self.assertEqual(fv.mfs[4].idx, 5)
 
     def test_first_not_left_shoulder_offsets_indexing(self):
         # If first mf is not left_shoulder, your code does n += 1 before creating it.
