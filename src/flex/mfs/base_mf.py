@@ -13,7 +13,7 @@ class BaseMF(eqx.Module, abc.ABC):
     """
     idx: int = eqx.field(static=True)
     name: str = eqx.field(static=True, default="", kw_only=True)
-    eps: float = eqx.field(static=True, default=1e-12, kw_only=True)
+    eps: float = eqx.field(static=True, default=1e-7, kw_only=True)
 
     @abc.abstractmethod
     def __call__(self, x: Array, nodes: Array) -> Array:
