@@ -83,7 +83,7 @@ class FuzzyVariable(eqx.Module):
                 if init == "noisy":
                     gaps = gaps + noise_scaler * jax.random.normal(key, gaps.shape)
 
-                params = ParamBank(gaps=gaps)
+                params = ParamBank(gaps=gaps, raw_sigmas=jnp.zeros((0,)))
             else:
                 raise NotImplementedError("Parameter specification for ruspini partitions is not implemented yet.")
 
@@ -258,7 +258,7 @@ class FuzzyVariable(eqx.Module):
         if init == "noisy":
             gaps = gaps + noise_scaler * jax.random.normal(key, gaps.shape)
 
-        params = ParamBank(gaps=gaps)
+        params = ParamBank(gaps=gaps, raw_sigmas=jnp.zeros((0,)))
 
         mfs = [LeftShoulder(idx=0, name=mf_names[0])]
 
@@ -278,12 +278,10 @@ class FuzzyVariable(eqx.Module):
     def __call__(self, x: ScalarLike) -> Array:
         x = jnp.asarray(x)
 
-        nodes = gaps2nodes(self.params.gaps, self.minval, self.maxval)
+        nodes = self.nodes
+        sigs = self.sigmas
 
-        if self.params.raw_sigmas is not None and len(self.params.raw_sigmas) > 0:
-            sigs = sig_softplus(self.params.raw_sigmas)
-
-        mus = [mf(x, nodes) if type(mf) is not Gaussian else mf(x, nodes, sigs) for mf in self.mfs]
+        mus = [mf(x, nodes, sigs) for mf in self.mfs]
         return jnp.stack(mus, axis=-1)  # (n_vals, n_mfs)
 
     @property
@@ -291,21 +289,22 @@ class FuzzyVariable(eqx.Module):
         return gaps2nodes(self.params.gaps, self.minval, self.maxval)
 
     @property
+    def sigmas(self) -> Array:
+        return sig_softplus(self.params.raw_sigmas)
+
+    @property
     def mf_params(self) -> list[Array]:
-        nodes = gaps2nodes(self.params.gaps, self.minval, self.maxval)
+        nodes = self.nodes
+        sigs = self.sigmas
 
-        if self.params.raw_sigmas is not None:
-            sigs = sig_softplus(self.params.raw_sigmas)
-
-        params = []
-        for mf in self.mfs:
-            if type(mf) is not Gaussian:
-                params.append(mf.get_params(nodes))
-            else:
-                params.append(mf.get_params(nodes, sigs))
+        params = [mf.get_params(nodes, sigs) for mf in self.mfs]
 
         return params
 
     @property
     def mf_names(self) -> list[str]:
         return [mf.name for mf in self.mfs]
+
+    @property
+    def n_mfs(self) -> int:
+        return len(self.mfs)
