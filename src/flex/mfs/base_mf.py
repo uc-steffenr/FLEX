@@ -16,9 +16,9 @@ class BaseMF(eqx.Module, abc.ABC):
     eps: float = eqx.field(static=True, default=1e-7, kw_only=True)
 
     @abc.abstractmethod
-    def __call__(self, x: Array, nodes: Array) -> Array:
+    def __call__(self, x: Array, nodes: Array, sigs: Array) -> Array:
         raise NotImplementedError("__call__ is not implemented for base MF class.")
 
     @abc.abstractmethod
-    def get_params(self, nodes: Array) -> Array:
+    def get_params(self, nodes: Array, sigs: Array) -> Array:
         raise NotImplementedError("get_params is not implemented for base MF class.")

@@ -13,7 +13,7 @@ from ..utils.types import Array
 class LeftShoulder(BaseMF):
     name: str = eqx.field(static=True, default="left", kw_only=True)
 
-    def __call__(self, x: Array, nodes: Array) -> Array:
+    def __call__(self, x: Array, nodes: Array, sigs: Array) -> Array:
         idx = self.idx
         eps = self.eps
 
@@ -22,7 +22,7 @@ class LeftShoulder(BaseMF):
 
         return left_shoulder(x, c, d, eps)
 
-    def get_params(self, nodes: Array) -> Array:
+    def get_params(self, nodes: Array, sigs: Array) -> Array:
         c = nodes[self.idx]
         d = nodes[self.idx + 1]
 
@@ -32,7 +32,7 @@ class LeftShoulder(BaseMF):
 class RightShoulder(BaseMF):
     name: str = eqx.field(static=True, default="right", kw_only=True)
 
-    def __call__(self, x: Array, nodes: Array) -> Array:
+    def __call__(self, x: Array, nodes: Array, sigs: Array) -> Array:
         idx = self.idx
         eps = self.eps
 
@@ -41,7 +41,7 @@ class RightShoulder(BaseMF):
 
         return right_shoulder(x, a, b, eps)
 
-    def get_params(self, nodes: Array) -> Array:
+    def get_params(self, nodes: Array, sigs: Array) -> Array:
         a = nodes[self.idx - 1]
         b = nodes[self.idx]
 

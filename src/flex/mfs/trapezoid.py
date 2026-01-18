@@ -13,7 +13,7 @@ from ..utils.types import Array
 class Trapezoid(BaseMF):
     name: str = eqx.field(static=True, default="trap", kw_only=True)
 
-    def __call__(self, x: Array, nodes: Array) -> Array:
+    def __call__(self, x: Array, nodes: Array, sigs: Array) -> Array:
         idx = self.idx
         eps = self.eps
 
@@ -24,7 +24,7 @@ class Trapezoid(BaseMF):
 
         return trapezoid(x, a, b, c, d, eps)
 
-    def get_params(self, nodes: Array) -> Array:
+    def get_params(self, nodes: Array, sigs: Array) -> Array:
         a = nodes[self.idx - 1]
         b = nodes[self.idx]
         c = nodes[self.idx + 1]

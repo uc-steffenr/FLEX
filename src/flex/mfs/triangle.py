@@ -13,7 +13,7 @@ from ..utils.types import Array
 class Triangle(BaseMF):
     name: str = eqx.field(static=True, default="tri", kw_only=True)
 
-    def __call__(self, x: Array, nodes: Array) -> Array:
+    def __call__(self, x: Array, nodes: Array, sigs: Array) -> Array:
         idx = self.idx
         eps = self.eps
 
@@ -23,7 +23,7 @@ class Triangle(BaseMF):
 
         return triangle(x, a, b, c, eps)
 
-    def get_params(self, nodes: Array) -> Array:
+    def get_params(self, nodes: Array, sigs: Array) -> Array:
         a = nodes[self.idx - 1]
         b = nodes[self.idx]
         c = nodes[self.idx + 1]
