@@ -36,11 +36,12 @@ class TestMFs(unittest.TestCase):
         name = "mf"
         
         params = jnp.array([nodes[idx-1], nodes[idx], nodes[idx+1]])
+        sigs = jnp.zeros((0,))
         
         mf = Triangle(idx=idx, name=name)
         
         assert mf.name == name
-        assert jnp.all(mf.get_params(nodes) == params)
+        assert jnp.all(mf.get_params(nodes, sigs) == params)
 
     def test_trapezoid(self):
         nodes = self._generate_nodes()
@@ -49,24 +50,26 @@ class TestMFs(unittest.TestCase):
         name = "mf"
         
         params = jnp.array([nodes[idx-1], nodes[idx], nodes[idx+1], nodes[idx+2]])
+        sigs = jnp.zeros((0,))
         
         mf = Trapezoid(idx=idx, name=name)
         
         assert mf.name == name
-        assert jnp.all(mf.get_params(nodes) == params)
+        assert jnp.all(mf.get_params(nodes, sigs) == params)
 
     def test_left_shoulder(self):
         nodes = self._generate_nodes()
 
         idx = 0
         name = "mf"
-        
+
         params = jnp.array([nodes[idx], nodes[idx+1]])
+        sigs = jnp.zeros((0,))
         
         mf = LeftShoulder(idx=idx, name=name)
         
         assert mf.name == name
-        assert jnp.all(mf.get_params(nodes) == params)
+        assert jnp.all(mf.get_params(nodes, sigs) == params)
 
     def test_right_shoulder(self):
         nodes = self._generate_nodes()
@@ -75,11 +78,12 @@ class TestMFs(unittest.TestCase):
         name = "mf"
         
         params = jnp.array([nodes[idx-1], nodes[idx]])
+        sigs = jnp.zeros((0,))
         
         mf = RightShoulder(idx=idx, name=name)
         
         assert mf.name == name
-        assert jnp.all(mf.get_params(nodes) == params)
+        assert jnp.all(mf.get_params(nodes, sigs) == params)
 
 class TestMFFunctions(unittest.TestCase):
     def _generate_test_points(self):
