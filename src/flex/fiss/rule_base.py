@@ -44,11 +44,14 @@ class RuleBase(eqx.Module):
         else:
             raise ValueError(f"mu must either have ndim=2 or ndim=3, got {mu.ndim}.")
 
-        V = mu_batched.shape[1]
+        _, V, M = mu_batched.shape
         if V != self.n_vars:
             raise ValueError(f"mu has n_vars={V}, but rulebase has n_vars={self.n_vars}.")
 
         ants = self.antecedents
+
+        if jnp.any((ants >= M) | (ants < -1)):
+            raise ValueError("antecedents contain invalid MF indices (must be in [-1, max_mfs-1]).")
 
         idx = jnp.maximum(ants, 0)
 
@@ -124,17 +127,3 @@ class RuleBase(eqx.Module):
                 ants = ants.at[i, v].set(mf)
 
         return cls(ants, tnorm=tnorm)
-
-
-
-# NOTE: these stats must be separate from the rulebase so that params don't affect training
-# class RuleStats(eqx.Module):
-#     count: Array
-#     mass: Array
-
-#     @classmethod
-#     def zeros(cls, n_rules: int, *, dtype_mass=jnp.float32) -> "RuleStats":
-#         return cls(
-#             count=jnp.zeros((n_rules,), dtype=jnp.int32),
-#             mass=jnp.zeros((n_rules,)), dtype=dtype_mass,
-#         )
