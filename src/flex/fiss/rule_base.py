@@ -151,6 +151,8 @@ class RuleBase(eqx.Module):
         ants = jnp.stack(ants_cols, axis=1)  # (R, V)
         return cls(ants, tnorm=tnorm)
 
+    # NOTE: It's not always the case that all variables are included in the rulebase,
+    # so n_vars needs to be a separate argument
     @classmethod
     def sparse(
         cls,
