@@ -10,7 +10,7 @@ from ..utils.types import Array
 
 
 class RuleBase(eqx.Module):
-    antecedents: Array  # shape (n_rules, n_vars) -> each rule contains n_vars w/ specific mf index
+    antecedents: Array  # shape (n_rules, n_vars) -> -1 for "don't care" rules
     tnorm: Literal["prod", "min"] = eqx.field(static=True)
 
     def __init__(
@@ -35,6 +35,29 @@ class RuleBase(eqx.Module):
         return int(self.antecedents.shape[1])
 
     def fire(self, mu: Array) -> Array:
+        """Computes rule firing weights.
+
+        Parameters
+        ----------
+        mu : Array
+            Membership values, shape (n_vars, n_max_mfs) or (B, n_vars, n_max_mfs).
+
+        Returns
+        -------
+        Array
+            Rule firing weights.
+
+        Raises
+        ------
+        ValueError
+            Incorrect dimensions for mu.
+        ValueError
+            Inconsistent variables for mu and rulebase.
+        ValueError
+            Wrong number of MF indicies in antecedents.
+        ValueError
+            Unknown tnorm utilized.
+        """
         if mu.ndim == 2:
             mu_batched = mu[None, :, :]
             squeeze_out = True
@@ -81,16 +104,39 @@ class RuleBase(eqx.Module):
         *,
         tnorm: Literal["prod", "min"] = "prod",
     ) -> "RuleBase":
+        """Iinitializes dense rule base based on FIS fuzzy variable values.
+
+        Parameters
+        ----------
+        n_mfs_per_var : Sequence[int]
+            Number of membership functions per variable.
+        tnorm : Literal[&quot;prod&quot;, &quot;min&quot;], optional
+            Aggergation method to use, by default "prod".
+
+        Returns
+        -------
+        RuleBase
+            Instantiation of rule base.
+
+        Raises
+        ------
+        ValueError
+            Must have a n_mfs_per_var list of len > 0.
+        ValueError
+            Must have positive integers in n_mfs_per_var.
+        """
         n_mfs_per_var = tuple(int(m) for m in n_mfs_per_var)
         if len(n_mfs_per_var) == 0:
             raise ValueError("n_mfs_per_var must be non-empty.")
         if any(m <= 0 for m in n_mfs_per_var):
             raise ValueError(f"All MF counts must be positive, got {n_mfs_per_var}")
 
+        # compute number of rules
         R = 1
         for m in n_mfs_per_var:
             R *= m
 
+        # assembling dense rules -- mixed radix enumeration (better than nested loops)
         r = jnp.arange(R, dtype=jnp.int32)  # (R,)
         ants_cols = []
         base = 1
@@ -109,6 +155,31 @@ class RuleBase(eqx.Module):
         rules: Sequence[Sequence[Tuple[int, int]]],
         tnorm: Literal["prod", "min"] = "prod",
     ) -> "RuleBase":
+        """Initializes sparse rule base based on user specification.
+
+        Parameters
+        ----------
+        n_vars : int
+            Number of variables inherent to the FIS.
+        rules : Sequence[Sequence[Tuple[int, int]]]
+            List of rules to be used as antecedents.
+        tnorm : Literal[&quot;prod&quot;, &quot;min&quot;], optional
+            Aggregation method to use, by default "prod".
+
+        Returns
+        -------
+        RuleBase
+            Instantiation of rule base.
+
+        Raises
+        ------
+        ValueError
+            n_vars must be positive.
+        ValueError
+            Invalid variable index.
+        ValueError
+            Invalid mf index.
+        """
         V = int(n_vars)
         if V <= 0:
             raise ValueError("n_vars must be positive.")
