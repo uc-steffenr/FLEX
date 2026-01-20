@@ -4,6 +4,7 @@ import unittest
 import numpy as np
 
 import jax
+import equinox as eqx
 import jax.numpy as jnp
 
 from flex.fiss import RuleBase, RuleStats, update_rule_stats, mf_usage_from_stats
@@ -146,7 +147,7 @@ class TestRuleBaseFire(unittest.TestCase):
         )  # (V=2, M=3)
         mu_batched = mu_unbatched[None, :, :]  # (B=1, V=2, M=3)
 
-        f = jax.jit(rb.fire)
+        f = eqx.filter_jit(rb.fire)
         w1 = f(mu_unbatched)
         w2 = f(mu_batched)
 
