@@ -74,8 +74,8 @@ class RuleBase(eqx.Module):
 
         ants = self.antecedents
 
-        if jnp.any((ants >= M) | (ants < -1)):
-            raise ValueError("antecedents contain invalid MF indices (must be in [-1, max_mfs-1]).")
+        # if jnp.any((ants >= M) | (ants < -1)):
+        #     raise ValueError("antecedents contain invalid MF indices (must be in [-1, max_mfs-1]).")
 
         # eliminate negative indices for gather operation
         idx = jnp.maximum(ants, 0)
