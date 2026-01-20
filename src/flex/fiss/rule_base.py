@@ -34,6 +34,7 @@ class RuleBase(eqx.Module):
     def n_vars(self) -> int:
         return int(self.antecedents.shape[1])
 
+    # TODO: work on making this agnostic of batch dimensions
     def fire(self, mu: Array) -> Array:
         """Computes rule firing weights.
 
