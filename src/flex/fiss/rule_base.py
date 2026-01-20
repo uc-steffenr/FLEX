@@ -58,6 +58,7 @@ class RuleBase(eqx.Module):
         ValueError
             Unknown tnorm utilized.
         """
+        # if mu is not batched, expand it and make it batched
         if mu.ndim == 2:
             mu_batched = mu[None, :, :]
             squeeze_out = True
@@ -76,14 +77,17 @@ class RuleBase(eqx.Module):
         if jnp.any((ants >= M) | (ants < -1)):
             raise ValueError("antecedents contain invalid MF indices (must be in [-1, max_mfs-1]).")
 
+        # eliminate negative indices for gather operation
         idx = jnp.maximum(ants, 0)
 
         gathered = jnp.take_along_axis(
             mu_batched[:, None, :, :],
             idx[None, :, :, None],
             axis=-1,
-        ).squeeze(-1)
+        ).squeeze(-1)  # shape (B, n_rules, n_vars)
 
+        # replace "dont't care" indices with mu of 1.0 for tnorm
+        # NOTE: might cause an issue later if snorm is ever included
         gathered = jnp.where(ants[None, :, :] == -1, 1.0, gathered)
 
         if self.tnorm == "prod":

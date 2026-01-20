@@ -16,6 +16,20 @@ class RuleStats(eqx.Module):
 
     @classmethod
     def init(cls, n_rules: int, *, dtype=jnp.float32) -> "RuleStats":
+        """Initializes stats with zeros.
+
+        Parameters
+        ----------
+        n_rules : int
+            Number of rules in rule base.
+        dtype : optional
+            Data type being used, by default jnp.float32.
+
+        Returns
+        -------
+        RuleStats
+            Rule statistics object.
+        """
         z = jnp.zeros((int(n_rules),), dtype=dtype)
         return cls(mass=z, count=z, ema_mass=z)
 
