@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Literal
 
 import equinox as eqx
-from jax.numpy import jnp
+import jax.numpy as jnp
 
 from ..utils.types import Array
 
