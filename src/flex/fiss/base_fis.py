@@ -94,3 +94,7 @@ class BaseFIS(eqx.Module, abc.ABC):
     @property
     def n_inps(self) -> int:
         return len(self.input_vars)
+
+    @property
+    def n_rules(self) -> int:
+        return self.rb.n_rules
