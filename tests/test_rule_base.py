@@ -154,6 +154,65 @@ class TestRuleBaseFire(unittest.TestCase):
         self.assertEqual(w1.shape, (2,))
         self.assertEqual(w2.shape, (1, 2))
 
+    def test_fire_accepts_ellipsis_batch_dims_nonjit(self):
+        # R=2, V=2, M=3
+        rb = RuleBase(jnp.array([[2, 1], [0, -1]], dtype=jnp.int32), tnorm="prod")
+
+        # Build mu with shape (T, B, V, M) = (2, 3, 2, 3)
+        # We'll make values easy to reason about.
+        T, B, V, M = 2, 3, 2, 3
+        mu = jnp.array(
+            [
+                # t=0
+                [
+                    [[0.2, 0.6, 0.9], [0.1, 0.5, 0.8]],  # b=0
+                    [[0.3, 0.4, 0.5], [0.9, 0.2, 0.1]],  # b=1
+                    [[0.7, 0.2, 0.1], [0.4, 0.4, 0.4]],  # b=2
+                ],
+                # t=1
+                [
+                    [[0.9, 0.1, 0.0], [0.6, 0.6, 0.6]],
+                    [[0.1, 0.2, 0.3], [0.3, 0.2, 0.1]],
+                    [[0.5, 0.5, 0.5], [0.8, 0.1, 0.0]],
+                ],
+            ],
+            dtype=jnp.float32,
+        )
+        self.assertEqual(mu.shape, (T, B, V, M))
+
+        w = rb.fire(mu)
+        self.assertEqual(w.shape, (T, B, rb.n_rules))
+
+        # Spot-check a couple values:
+        # rule0: (v0 MF2) * (v1 MF1)
+        # rule1: (v0 MF0) * (dont-care -> 1)
+        # t=0, b=0: v0 MF2=0.9, v1 MF1=0.5 => 0.45; rule1=v0 MF0=0.2
+        w_np = np.asarray(w)
+        self.assertAlmostEqual(float(w_np[0, 0, 0]), 0.9 * 0.5, places=6)
+        self.assertAlmostEqual(float(w_np[0, 0, 1]), 0.2, places=6)
+
+        # t=1, b=2: v0 MF2=0.5, v1 MF1=0.1 => 0.05; rule1=v0 MF0=0.5
+        self.assertAlmostEqual(float(w_np[1, 2, 0]), 0.5 * 0.1, places=6)
+        self.assertAlmostEqual(float(w_np[1, 2, 1]), 0.5, places=6)
+
+    def test_fire_accepts_ellipsis_batch_dims_jittable(self):
+        rb = RuleBase(jnp.array([[2, 1], [0, -1]], dtype=jnp.int32), tnorm="prod")
+
+        T, B, V, M = 2, 3, 2, 3
+        mu = jnp.ones((T, B, V, M), dtype=jnp.float32) * 0.5
+
+        # Use eqx.filter_jit for methods closing over eqx.Modules.
+        f = eqx.filter_jit(rb.fire)
+        w = f(mu)
+
+        self.assertEqual(w.shape, (T, B, rb.n_rules))
+        # With all memberships 0.5:
+        # rule0 (prod): 0.5 * 0.5 = 0.25
+        # rule1 (prod): 0.5 * 1.0 = 0.5
+        w_np = np.asarray(w)
+        self.assertAlmostEqual(float(w_np[0, 0, 0]), 0.25, places=6)
+        self.assertAlmostEqual(float(w_np[0, 0, 1]), 0.5, places=6)
+
 
 class TestRuleStats(unittest.TestCase):
     def test_init_shapes_and_zeros(self):

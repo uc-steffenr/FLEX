@@ -34,73 +34,46 @@ class RuleBase(eqx.Module):
     def n_vars(self) -> int:
         return int(self.antecedents.shape[1])
 
-    # TODO: work on making this agnostic of batch dimensions
     def fire(self, mu: Array) -> Array:
-        """Computes rule firing weights.
+        if mu.ndim < 2:
+            raise ValueError(f"mu must have at least 2 dims (..., n_vars, max_mfs), got {mu.shape}")
 
-        Parameters
-        ----------
-        mu : Array
-            Membership values, shape (n_vars, n_max_mfs) or (B, n_vars, n_max_mfs).
-
-        Returns
-        -------
-        Array
-            Rule firing weights.
-
-        Raises
-        ------
-        ValueError
-            Incorrect dimensions for mu.
-        ValueError
-            Inconsistent variables for mu and rulebase.
-        ValueError
-            Wrong number of MF indicies in antecedents.
-        ValueError
-            Unknown tnorm utilized.
-        """
-        # if mu is not batched, expand it and make it batched
-        if mu.ndim == 2:
-            mu_batched = mu[None, :, :]
-            squeeze_out = True
-        elif mu.ndim == 3:
-            mu_batched = mu
-            squeeze_out = False
-        else:
-            raise ValueError(f"mu must either have ndim=2 or ndim=3, got {mu.ndim}.")
-
-        _, V, M = mu_batched.shape
+        *batch_shape, V, M = mu.shape
         if V != self.n_vars:
             raise ValueError(f"mu has n_vars={V}, but rulebase has n_vars={self.n_vars}.")
 
-        ants = self.antecedents
+        # Flatten arbitrary batch dims -> (B, V, M) without computing B in Python from JAX ops.
+        if len(batch_shape) == 0:
+            mu_batched = mu[None, :, :]      # (1, V, M)
+            squeeze_out = True
+        else:
+            mu_batched = jnp.reshape(mu, (-1, V, M))  # (B, V, M)
+            squeeze_out = False
 
-        # if jnp.any((ants >= M) | (ants < -1)):
-        #     raise ValueError("antecedents contain invalid MF indices (must be in [-1, max_mfs-1]).")
-
-        # eliminate negative indices for gather operation
-        idx = jnp.maximum(ants, 0)
+        ants = self.antecedents            # (R, V)
+        idx = jnp.maximum(ants, 0)         # (R, V)
 
         gathered = jnp.take_along_axis(
-            mu_batched[:, None, :, :],
-            idx[None, :, :, None],
+            mu_batched[:, None, :, :],     # (B, 1, V, M)
+            idx[None, :, :, None],         # (1, R, V, 1)
             axis=-1,
-        ).squeeze(-1)  # shape (B, n_rules, n_vars)
+        ).squeeze(-1)                      # (B, R, V)
 
-        # replace "dont't care" indices with mu of 1.0 for tnorm
-        # NOTE: might cause an issue later if snorm is ever included
-        gathered = jnp.where(ants[None, :, :] == -1, 1.0, gathered)
+        one = jnp.array(1.0, dtype=mu_batched.dtype)
+        gathered = jnp.where(ants[None, :, :] == -1, one, gathered)
 
         if self.tnorm == "prod":
-            w = jnp.prod(gathered, axis=-1)
+            w = jnp.prod(gathered, axis=-1)   # (B, R)
         elif self.tnorm == "min":
             w = jnp.min(gathered, axis=-1)
         else:
             raise ValueError(f"Unknown tnorm: {self.tnorm}.")
 
         if squeeze_out:
-            return w[0]
-        return w
+            return w[0]  # (R,)
+
+        # Restore original batch shape: (..., R)
+        return jnp.reshape(w, (*batch_shape, self.n_rules))
 
     @classmethod
     def dense(
