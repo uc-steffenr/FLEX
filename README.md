@@ -9,8 +9,10 @@ pip install --upgrade "jax[cuda12]"==0.8.2
 ```
 
 ## TODO list
-- Add Mamdani FIS
-- Add ANFIS
-- Make tests for FISs
+- Add train  method
+- Add batch generator
+- Add parameter count as a util
+- Work on mf/rule pruning
+- Add example connecting to DNN
 - FIS visualization?
 - Make some examples with FISs
