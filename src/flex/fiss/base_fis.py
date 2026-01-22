@@ -15,10 +15,31 @@ from ..utils.types import Array
 class BaseFIS(eqx.Module, abc.ABC):
     input_vars: tuple[FuzzyVariable, ...]
 
-    rb: RuleBase = eqx.field(static=True)
+    rb: RuleBase # = eqx.field(static=True)
     n_mfs_max: int = eqx.field(static=True)
     name: str = eqx.field(static=True, default="fis", kw_only=True)
     eps: float = eqx.field(static=True, default=1e-6, kw_only=True)
+
+    @staticmethod
+    def _build_base(
+        input_vars: tuple[FuzzyVariable, ...],
+        *,
+        antecedents: Sequence[Sequence[tuple[int, int]]]|None = None,
+        tnorm: Literal["prod", "min"] = "prod",
+        name: str = "fis",
+        eps: float = 1e-6,
+    ):
+        input_vars = tuple(input_vars)
+
+        n_mfs_per_var = [fv.n_mfs for fv in input_vars]
+        n_mfs_max = max(n_mfs_per_var)
+
+        if antecedents is None:  # assume dense rulebase
+            rb = RuleBase.dense(n_mfs_per_var=n_mfs_per_var, tnorm=tnorm)
+        else:
+            rb = RuleBase.sparse(n_vars=len(input_vars), rules=antecedents, tnorm=tnorm)
+
+        return input_vars, rb, n_mfs_max, name, eps
 
     @classmethod
     def init(
@@ -30,15 +51,13 @@ class BaseFIS(eqx.Module, abc.ABC):
         name: str = "fis",
         eps: float = 1e-6,
     ) -> Self:
-        input_vars = tuple(input_vars)
-
-        n_mfs_per_var = [fv.n_mfs for fv in input_vars]
-        n_mfs_max = max(n_mfs_per_var)
-
-        if antecedents is None:  # assume dense rulebase
-            rb = RuleBase.dense(n_mfs_per_var=n_mfs_per_var, tnorm=tnorm)
-        else:
-            rb = RuleBase.sparse(n_vars=len(input_vars), rules=antecedents, tnorm=tnorm)
+        input_vars, rb, n_mfs_max, name, eps = BaseFIS._build_base(
+            input_vars,
+            antecedents=antecedents,
+            tnorm=tnorm,
+            name=name,
+            eps=eps,
+        )
 
         return cls(input_vars=input_vars, rb=rb, n_mfs_max=n_mfs_max, name=name, eps=eps)
 
@@ -60,7 +79,7 @@ class BaseFIS(eqx.Module, abc.ABC):
         eqx.error_if(
             x,
             x.shape[-1] != self.n_inps,
-            f"x last dimension must be {self.n_inpts}."
+            f"x last dimension must be {self.n_inps}."
         )
 
         mus = []
