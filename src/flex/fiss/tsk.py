@@ -33,14 +33,15 @@ class TSK(BaseFIS):
         if n_out <= 0:
             raise ValueError("n_out must be >= 1.")
 
-        base = super().init(
-            input_vars=input_vars,
+        input_vars, rb, n_mfs_max, name, eps = BaseFIS._build_base(
+            input_vars,
             antecedents=antecedents,
-            name=name,
             tnorm=tnorm,
+            name=name,
+            eps=eps,
         )
 
-        n_inps = base.n_inps
+        n_inps = len(input_vars)
 
         if order == 0:
             n_features = 1
@@ -51,7 +52,7 @@ class TSK(BaseFIS):
         else:
             raise ValueError("order must be 0, 1, or 2.")
 
-        n_rules = base.rb.n_rules
+        n_rules = rb.n_rules
 
         k1, = jax.random.split(key, 1)
         consequents = init_scale * jax.random.normal(
@@ -60,9 +61,9 @@ class TSK(BaseFIS):
 
         return cls(
             input_vars=input_vars,
-            rb=base.rb,
-            n_mfs_max=base.n_mfs_max,
-            name=base.name,
+            rb=rb,
+            n_mfs_max=n_mfs_max,
+            name=name,
             consequents=consequents,
             order=int(order),
             eps=eps,
