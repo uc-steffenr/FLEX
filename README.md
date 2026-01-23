@@ -11,5 +11,4 @@ pip install --upgrade "jax[cuda12]"==0.8.2
 ## TODO list
 - Add train  method
 - Work on mf/rule pruning
-- Add example connecting to DNN
 - Work on documentation
